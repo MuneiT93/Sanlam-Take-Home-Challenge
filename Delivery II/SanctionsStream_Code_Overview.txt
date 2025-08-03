@@ -1,0 +1,65 @@
+SanctionsStream Project - Code Overview
+1.	ingest_sanctions.py
+import pandas as pd
+import sqlite3
+
+# 1. Read the Excel file (adjust the filename if needed)
+excel_file = "Consolidated United Nations Security Council Sanctions List.xlsx"
+df = pd.read_excel(excel_file, sheet_name=0, engine="openpyxl")  # Reads the first sheet
+
+# 2. Clean the data (remove empty rows)
+df = df.dropna(how='all')
+
+# 3. Store in SQLite database
+conn = sqlite3.connect("sanctions.db")
+df.to_sql("sanctions_list", conn, if_exists="replace", index=False)
+conn.close()
+
+print("Ingestion complete! Data is now in sanctions.db")
+
+2.	Dockerfile
+FROM python:3.10-slim
+
+WORKDIR /app
+
+COPY . /app
+
+RUN pip install pandas openpyxl
+
+CMD ["python", "ingest_sanctions.py"]
+
+3.	docker-compose.yml
+version: '3.8'
+services:
+  sanctions_ingestor:
+    build: .
+    container_name: sanctions_ingestor
+    volumes:
+      - ./data:/app
+    restart: unless-stopped
+
+4.	streaming_ingest.py
+import tweepy
+import sqlite3
+
+# Twitter API credentials (replace with your own)
+bearer_token = "YOUR_TWITTER_BEARER_TOKEN"
+
+client = tweepy.Client(bearer_token=bearer_token)
+
+# Search for recent tweets about "sanctions"
+query = "sanctions"
+tweets = client.search_recent_tweets(query=query, max_results=10)
+
+# Store tweets in SQLite
+conn = sqlite3.connect("tweets.db")
+c = conn.cursor()
+c.execute("CREATE TABLE IF NOT EXISTS tweets (id TEXT, text TEXT)")
+
+for tweet in tweets.data:
+    c.execute("INSERT INTO tweets (id, text) VALUES (?, ?)", (tweet.id, tweet.text))
+
+conn.commit()
+conn.close()
+print("Tweets ingested!")
+

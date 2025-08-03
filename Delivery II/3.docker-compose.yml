@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  sanctions_ingestor:
+    build: .
+    container_name: sanctions_ingestor
+    volumes:
+      - ./data:/app
+    restart: unless-stopped
